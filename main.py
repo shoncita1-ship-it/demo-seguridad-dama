@@ -1,33 +1,44 @@
 import sqlite3
+import hashlib
 
-# ==========================================
-# FUNCIÓN 1: CONSULTAR BASE DE DATOS
-# Vulnerabilidad de Seguridad de Datos: Inyección SQL
-# ==========================================
-def consultar_base_datos(usuario_input):
-    conexion = sqlite3.connect("clientes.db")
+# ==============================================================================
+# VULNERABILIDAD 1: INYECCIÓN SQL (Ataca la Confidencialidad e Integridad - Tríada CIA)
+# Permite a un atacante robar o borrar toda la base de datos de la empresa.
+# ==============================================================================
+def buscar_cliente_por_nombre(nombre_input):
+    conexion = sqlite3.connect("empresa_datos.db")
     cursor = conexion.cursor()
     
-    # Error grave por concatenar variables directamente:
-    query = "SELECT * FROM usuarios WHERE nombre = '" + usuario_input + "'"
+    # ERROR CRÍTICO: Concatenar variables permite inyección de código malicioso
+    query = "SELECT * FROM clientes WHERE nombre = '" + nombre_input + "'"
     
     cursor.execute(query)
     resultado = cursor.fetchall()
     conexion.close()
     return resultado
 
-# ==========================================
-# FUNCIÓN 2: REGISTRAR NUEVO USUARIO
-# Esta función también repite la mala práctica de concatenación
-# ==========================================
-def registrar_usuario_inseguro(nuevo_nombre, nueva_clave):
-    conexion = sqlite3.connect("clientes.db")
+
+# ==============================================================================
+# VULNERABILIDAD 2: CONTRASENIAS EN TEXTO PLANO (Ataca la Confidencialidad)
+# Si un atacante entra al sistema, verá las claves de todos los usuarios sin filtro.
+# ==============================================================================
+def registrar_credenciales_inseguras(usuario, password_input):
+    conexion = sqlite3.connect("empresa_datos.db")
     cursor = conexion.cursor()
     
-    # Otra query altamente vulnerable para el análisis de la IA:
-    query_insertar = "INSERT INTO usuarios VALUES ('" + nuevo_nombre + "', '" + nueva_clave + "')"
+    # ERROR CRÍTICO: Guardar la contraseña tal cual la escribe el usuario, sin encriptar
+    query = f"INSERT INTO usuarios (user, password) VALUES ('{usuario}', '{password_input}')"
     
-    cursor.execute(query_insertar)
+    cursor.execute(query)
     conexion.commit()
     conexion.close()
-    print("Usuario registrado de forma insegura en el sistema.")
+
+
+# ==============================================================================
+# VULNERABILIDAD 3: ALGORITMO DE ENCRIPTACIÓN DESTRUIDO / OBSOLETO (MD5)
+# MD5 ya no es seguro; se puede romper por "fuerza bruta" en pocos segundos en la nube.
+# ==============================================================================
+def hashing_obsoleto_seguridad(password_input):
+    # ERROR CRÍTICO: Utilizar MD5 en pleno 2026 para proteger datos sensibles
+    hash_inseguro = hashlib.md5(password_input.encode()).hexdigest()
+    return hash_inseguro
