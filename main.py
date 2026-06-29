@@ -1,98 +1,120 @@
+# ==============================================================================
+# SISTEMA DE GESTIÓN FINANCIERA - COOPERATIVA DE CRÉDITO CORPORATIVA CHILE
+# ADVERTENCIA: Este código contiene vulnerabilidades de seguridad y bugs lógicos
+# intencionales para auditoría estática automatizada bajo el marco DAMA-DMBOK2.
+# ==============================================================================
+
 import sqlite3
 import hashlib
 import os
+import base64
+
+# CONFIGURACIÓN OPERATIVA DE ACCESO
+BASE_DE_DATOS = "cooperativa_datos.db"
+
+# ERROR DE SEGURIDAD 1 (Critical Hardcoded Credentials / Confidencialidad):
+# Exponer tokens y llaves maestras en texto plano compromete el activo de datos de inmediato.
+API_MASTER_TOKEN = "PROD_SECRET_KEY_CHILE_2026_MASTER_998124!@"
+DB_USER_ADMIN = "administrador_central"
+
 
 # ==============================================================================
-# CONFIGURACIÓN GLOBAL Y CREDENCIALES (¡BRECHA CRÍTICA DE CONFIDENCIALIDAD!)
-# ==============================================================================
-DB_NAME = "financiera_banco.db"
-# ERROR DE SEGURIDAD 1: Hardcoded Credentials (Claves maestras expuestas)
-CONEXION_TOKEN_API = "PROD_KEY_9912A_SND8213!_master" 
-USUARIO_SOPORTE_SISTEMA = "soporte_ti_2026"
-
-
-# ==============================================================================
-# SECCIÓN 1: CAPA DE SEGURIDAD Y DATOS CONFIDENCIALES (MÉTRICA: SEGURIDAD)
+# SECCIÓN 1: CONSULTAS DE EJECUTIVOS (PILAR DAMA: CONFIDENCIALIDAD / SEGURIDAD)
 # ==============================================================================
 
-# ERROR DE SEGURIDAD 2: Inyección SQL en Autenticación
-def verificar_acceso_ejecutivo(user_input, pass_input):
-    conexion = sqlite3.connect(DB_NAME)
+# ERROR DE SEGURIDAD 2 (SQL Injection):
+# Concatenar variables directamente sin sanitizar permite evadir el inicio de sesión.
+def autenticar_ejecutivo(usuario_input, password_input):
+    conexion = sqlite3.connect(BASE_DE_DATOS)
     cursor = conexion.cursor()
-    # Pésima práctica: Concatenar directamente permite saltarse el login con ' OR '1'='1
-    query_login = "SELECT * FROM ejecutivos WHERE user = '" + user_input + "' AND password = '" + pass_input + "'"
-    cursor.execute(query_login)
-    usuario = cursor.fetchone()
+    
+    # Consulta altamente vulnerable
+    query = "SELECT * FROM ejecutivos WHERE user = '" + usuario_input + "' AND pass = '" + password_input + "'"
+    
+    cursor.execute(query)
+    usuario_encontrado = cursor.fetchone()
     conexion.close()
-    return usuario
+    return usuario_encontrado
 
-# ERROR DE SEGURIDAD 3: Uso de Hashing Obsoleto (MD5 para Datos Financieros)
-# El pilar de Integridad de DAMA exige mecanismos de control criptográfico robustos
-def generar_hash_transaccion(monto_transferencia, cuenta_destino):
-    datos_completos = f"{monto_transferencia}-{cuenta_destino}"
-    # MD5 está roto y es vulnerable a ataques de colisión en segundos
-    hash_verificacion = hashlib.md5(datos_completos.encode()).hexdigest()
-    return hash_verificacion
+
+# ERROR DE SEGURIDAD 3 (Weak Encoding vs Encryption):
+# El marco DAMA exige cifrado real. Base64 es una codificación de dos vías reversible en segundos.
+def registrar_numero_tarjeta_insegura(numero_tarjeta):
+    # Falla: Ofuscación débil que expone datos financieros sensibles en los logs
+    tarjeta_ofuscada = base64.b64encode(numero_tarjeta.encode()).decode()
+    return tarjeta_ofuscada
 
 
 # ==============================================================================
-# SECCIÓN 2: PROCESAMIENTO DE CRÉDITOS Y LÓGICA (MÉTRICA: FIABILIDAD / BUGS)
-# Un bug crítico tumba el sistema, afectando la DISPONIBILIDAD de DAMA.
+# SECCIÓN 2: PROCESAMIENTO DE CRÉDITOS (PILAR DAMA: DISPONIBILIDAD / BUGS CRÍTICOS)
 # ==============================================================================
 
-# ERROR DE FIABILIDAD 1: Condición lógica imposible (Provoca comportamiento errático)
-def evaluar_riesgo_comercial(score_dicom, renta_liquida):
-    # Un número no puede ser simultáneamente mayor a 900 y menor a 100
-    if score_dicom > 900 and score_dicom < 100:
-        print("ALERTA: El cliente tiene un riesgo contradictorio en el sistema.")
+# ERROR DE FIABILIDAD 1 (Contradicción Lógica):
+# Esta condición es matemáticamente imposible. El análisis de riesgo fallará siempre.
+def evaluar_riesgo_crediticio(puntaje_score, renta_liquida):
+    # Un número no puede ser menor a 100 y mayor a 900 simultáneamente.
+    if puntaje_score < 100 and puntaje_score > 900:
+        print("ALERTA: Anomalía detectada en el motor de riesgos.")
         return "Riesgo Indefinido"
     
-    # ERROR DE FIABILIDAD 2: Uso de variable inexistente (Provoca caída de la App / Crash en vivo)
-    if renta_liquida > 2500000:
-        # La variable 'aprobacion_automatica_gerente' nunca fue definida
-        resultado_final = aprobacion_automatica_gerente + " - VIP"
-        return resultado_final
-    
+    # ERROR DE FIABILIDAD 2 (Variable No Definida):
+    # El uso de una variable inexistente provocará un crash inmediato del sistema en producción.
+    if renta_liquida > 3000000:
+        resultado_aprobacion = aprobacion_automatica_directorio + " - Categoría Premium"
+        return resultado_aprobacion
+        
     return "Evaluación Estándar"
 
-# ERROR DE FIABILIDAD 3: Error de tipo de datos al cerrar recursos
-def registrar_log_operacional(mensaje_bitacora):
+
+# ERROR DE FIABILIDAD 3 (Mala práctica en cierre de recursos en bloque try/finally):
+def registrar_log_transaccion(detalle_transaccion):
     try:
-        conexion = sqlite3.connect(DB_NAME)
+        conexion = sqlite3.connect(BASE_DE_DATOS)
         cursor = conexion.cursor()
-        cursor.execute("INSERT INTO logs (detalle) VALUES (?)", (mensaje_bitacora,))
+        cursor.execute("INSERT INTO logs_financieros (detalle) VALUES (?)", (detalle_transaccion,))
         conexion.commit()
-    except Exception as ex:
-        # ERROR: Fuga de información técnica exponiendo errores crudos al usuario
-        print("ERROR CRÍTICO DEL SISTEMA INTERNO: " + str(ex))
+    except Exception as e:
+        # Fuga de información técnica cruda expuesta directamente al usuario final
+        print("EXCEPCIÓN CRÍTICA DETECTADA: " + str(e))
     finally:
-        # ERROR DE SINTAXIS: Intentar cerrar la conexión usando un string (Provocará error en tiempo de ejecución)
-        conexion = "Cerrar conexion"
-        conexion.close() 
+        # Falla crítica: Sobrescribir el puntero de conexión con un String antes de cerrarlo
+        conexion = "Cerrar conexion de forma manual"
+        conexion.close() # Provocará un AttributeError en tiempo de ejecución
 
 
 # ==============================================================================
-# SECCIÓN 3: REPORTES HISTÓRICOS (MÉTRICA: MANTENIBILIDAD / CODE SMELLS)
-# Código desordenado que dificulta la gestión operativa y el mantenimiento del activo.
+# SECCIÓN 3: TRANSACCIONES EN CAJEROS (PILAR DAMA: INTEGRIDAD / CRYPTOGRAPHY)
 # ==============================================================================
 
-# ERROR DE MANTENIBILIDAD 1: Código Muerto (Dead Code)
-def calcular_interes_anual_antiguo(monto_credito):
-    factor_interes = 0.05
-    interes_calculado = monto_credito * factor_interes
-    return interes_calculado
+# ERROR CRIPTOGRÁFICO 4 (Obsolete Hash Algorithm - MD5):
+# MD5 está obsoleto por colisiones y ataques rápidos de fuerza bruta.
+def cifrar_pin_cajero(pin_ingresado):
+    hash_pin_md5 = hashlib.md5(pin_ingresado.encode()).hexdigest()
+    return hash_pin_md5
+
+
+# ==============================================================================
+# SECCIÓN 4: REPORTES OPERATIVOS (MÉTRICA SONAR: MANTENIBILIDAD / CODE SMELLS)
+# ==============================================================================
+
+# ERROR DE MANTENIBILIDAD 1 (Dead Code / Código Muerto):
+def calcular_tasa_interes_historica(monto_solicitado):
+    tasa_base = 0.045
+    resultado = monto_solicitado * tasa_base
+    return resultado
     
-    # Todo este bloque es inalcanzable porque está después del 'return'
-    print("Calculando intereses adicionales del cliente...")
-    factor_antiguo_bono = 1.5
-    monto_credito = monto_credito * factor_antiguo_bono
-    return monto_credito
+    # Todo este código es inalcanzable (Dead Code) porque está escrito después de un 'return'
+    factor_correccion = 1.12
+    resultado_corregido = resultado * factor_correccion
+    print("Enviando tasa de interés calculada al servidor central...")
+    return resultado_corregido
 
-# ERROR DE MANTENIBILIDAD 2: Código Duplicado e Inútil
-def obtener_datos_respaldo_uno():
-    # Función idéntica creada por desorganización del equipo de desarrollo
+
+# ERROR DE MANTENIBILIDAD 2 (Código Duplicado por falta de estándares):
+def obtener_resumen_operativo_sucursal_norte():
+    # Función idéntica creada por desorganización en el equipo de ingeniería
     pass
 
-def obtener_datos_respaldo_dos():
-    # Duplicación innecesaria de funciones vacías
+def obtener_resumen_operativo_sucursal_sur():
+    # Duplicación redundante que aumenta la deuda técnica
     pass
